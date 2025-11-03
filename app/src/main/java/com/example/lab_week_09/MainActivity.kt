@@ -35,8 +35,7 @@ import com.example.lab_week_09.ui.theme.OnBackgroundItemText
 import com.example.lab_week_09.ui.theme.PrimaryTextButton
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
-
-
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +43,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             LAB_WEEK_09Theme {
-                Surface (
+                Surface(
                     modifier = Modifier.fillMaxSize().systemBarsPadding(),
                     color = MaterialTheme.colorScheme.background
                 ) {
@@ -63,11 +62,8 @@ fun App(navController: NavHostController) {
     NavHost(
         navController = navController,
         startDestination = "home"
-    ){
+    ) {
         composable("home") {
-            //Here, we pass a lambda function that navigates to
-            "resultContent"
-            //and pass the listData as a parameter
             Home { navController.navigate(
                 "resultContent/?listData=$it")
             }
@@ -76,13 +72,12 @@ fun App(navController: NavHostController) {
         composable(
             "resultContent/?listData={listData}",
             arguments = listOf(navArgument("listData") {
-                type = NavType.StringType }
-            )
+                type = NavType.StringType
+            })
         ) {
             ResultContent(
                 it.arguments?.getString("listData").orEmpty()
             )
-
         }
     }
 }
@@ -90,14 +85,18 @@ fun App(navController: NavHostController) {
 @Composable
 fun Home(
     navigateFromHomeToResult: (String) -> Unit
-){
-    val listData =  remember{ mutableStateListOf(
+) {
+    val listData = remember { mutableStateListOf(
         Student("Tanu"),
         Student("Tina"),
         Student("Tono")
     ) }
 
     val inputField = remember { mutableStateOf(Student("")) }
+
+    val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    val listType = Types.newParameterizedType(List::class.java, Student::class.java)
+    val jsonAdapter = moshi.adapter<List<Student>>(listType)
 
     HomeContent(
         listData = listData,
@@ -109,7 +108,7 @@ fun Home(
                 inputField.value = Student("")
             }
         },
-        { navigateFromHomeToResult(listData.toList().toString()) }
+        { navigateFromHomeToResult(jsonAdapter.toJson(listData)) }
     )
 }
 
@@ -120,7 +119,7 @@ fun HomeContent(
     onInputValueChange: (String) -> Unit,
     onButtonClick: () -> Unit,
     navigateFromHomeToResult: () -> Unit
-){
+) {
     LazyColumn {
         item {
             Column(
@@ -139,18 +138,20 @@ fun HomeContent(
                     }
                 )
 
-                PrimaryTextButton(text = stringResource(
-                    id = R.string.button_click)
+                PrimaryTextButton(
+                    text = stringResource(
+                        id = R.string.button_click)
                 ) {
                     onButtonClick()
                 }
 
-                PrimaryTextButton(text = stringResource(
-                    id = R.string.button_navigate
-                )) {
+                PrimaryTextButton(
+                    text = stringResource(
+                        id = R.string.button_navigate
+                    )
+                ) {
                     navigateFromHomeToResult()
                 }
-
             }
         }
 
@@ -169,15 +170,20 @@ fun HomeContent(
 
 @Composable
 fun ResultContent(listData: String) {
-    Column(
+    val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    val listType = Types.newParameterizedType(List::class.java, Student::class.java)
+    val jsonAdapter = moshi.adapter<List<Student>>(listType)
+
+    val studentList = jsonAdapter.fromJson(listData) ?: emptyList()
+
+    LazyColumn(
         modifier = Modifier
             .padding(vertical = 4.dp)
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        OnBackgroundItemText(text = listData)
+        items(studentList) { student ->
+            OnBackgroundItemText(text = student.name)
+        }
     }
 }
-data class Student (
-    var name: String
-)
